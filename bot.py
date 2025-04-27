@@ -1,5 +1,6 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
+from config import TELEGRAM_TOKEN  # Importing the correct token
 
 # استیج‌های گفتگو
 ASK_PHONE, ASK_DIET, ASK_TASTE = range(3)
@@ -66,7 +67,7 @@ async def generate_and_send_recipe(update: Update, context) -> int:
     return ConversationHandler.END
 
 async def main():
-    application = Application.builder().token(config.TOKEN).build()
+    application = Application.builder().token(TELEGRAM_TOKEN).build()  # Using the correct token
 
     # ساخت ConversationHandler
     conv_handler = ConversationHandler(
