@@ -1,79 +1,85 @@
 import logging
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 import config
-import response
 import recipe_generator
 import data_storage
 
-# فعال کردن لاگ‌گذاری برای خطاها و اطلاع‌رسانی
+# فعال کردن لاگ‌گذاری
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# دستور شروع ربات
-def start(update: Update, context: CallbackContext) -> None:
+# استیج‌های گفتگو
+ASK_PHONE, ASK_DRINK = range(2)
+
+# استارت ربات
+def start(update: Update, context: CallbackContext) -> int:
     user = update.effective_user
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=f"سلام {user.first_name} عزیز! به ربات Inotexdrinkbot خوش آمدید.\n"
-             "برای شروع انتخاب نوشیدنی سرد خود، لطفاً چند سوال را پاسخ دهید."
+        text=f"سلام {user.first_name} عزیز! خوش اومدی به Inotex Drink Bot 🍹\n"
+             "لطفاً شماره تلفنت رو وارد کن:"
     )
-    ask_user_preferences(update, context)
+    return ASK_PHONE
 
-# پرسش از کاربر برای دریافت اطلاعات اولیه (رژیم غذایی، حساسیت‌ها و سلیقه)
-def ask_user_preferences(update: Update, context: CallbackContext) -> None:
+# دریافت شماره موبایل
+def ask_drink(update: Update, context: CallbackContext) -> int:
+    user_phone = update.message.text
+    context.user_data['user_phone'] = user_phone
+
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="آیا حساسیت غذایی خاصی دارید؟ (مثل شیر، گندم، گلوتن، ...) یا گزینه 'ندارم' را وارد کنید."
+        text="حالا اسم نوشیدنی مورد علاقه‌تو وارد کن یا بنویس 'فرقی نداره'."
     )
-    
-    # بعد از این که کاربر پاسخ داد، به مرحله بعدی رفته و رسیپی نوشیدنی را تولید می‌کند
-    return
+    return ASK_DRINK
 
-# پردازش پاسخ کاربر برای سوالات
-def handle_user_input(update: Update, context: CallbackContext) -> None:
-    user_input = update.message.text.lower()
-    
-    if 'ندارم' in user_input:
-        response_text = "ممنون که به ما اطلاع دادید. حالا بیایید سلیقه‌تون رو بگید!"
-    else:
-        response_text = "آیا شما علاقه دارید نوشیدنی‌هایی با طعم میوه یا گیاهی داشته باشید؟"
-    
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=response_text
-    )
+# دریافت نوشیدنی و تولید رسپی
+def generate_and_send_recipe(update: Update, context: CallbackContext) -> int:
+    selected_drink = update.message.text
+    context.user_data['selected_drink'] = selected_drink
 
-    # بعد از پردازش سوالات، کاربر به مرحله انتخاب نوشیدنی هدایت می‌شود
-    return
-
-# دریافت رسیپی نهایی
-def send_recipe(update: Update, context: CallbackContext) -> None:
-    # لیست مواد موجود از قبل باید در `recipe_generator` باشد.
+    # ساخت رسپی
     recipe = recipe_generator.generate_recipe()
-    
     recipe_text = "\n".join([f"{ingredient}: {quantity}" for ingredient, quantity in recipe.items()])
+
+    # ارسال رسپی به کاربر
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=f"رسپی شما:\n{recipe_text}"
+        text=f"اینم نوشیدنی پیشنهادی برات:\n\n{recipe_text}"
     )
 
-    # ذخیره‌سازی اطلاعات کاربر و نوشیدنی نهایی
-    data_storage.save_user_data(update.effective_user, recipe)
+    # ذخیره اطلاعات در فایل
+    user_name = update.effective_user.first_name
+    user_phone = context.user_data['user_phone']
+    selected_drink = context.user_data['selected_drink']
 
-# متد اصلی برای راه‌اندازی ربات
+    data_storage.store_user_data(user_name, user_phone, selected_drink, recipe)
+
+    # پایان مکالمه
+    return ConversationHandler.END
+
+# لغو مکالمه
+def cancel(update: Update, context: CallbackContext) -> int:
+    update.message.reply_text('مکالمه لغو شد. اگر خواستی دوباره شروع کنی، /start رو بزن.')
+    return ConversationHandler.END
+
 def main() -> None:
-    # استفاده از توکن ربات که در config.py ذخیره شده است
     updater = Updater(token=config.TOKEN)
-
     dispatcher = updater.dispatcher
 
-    # ثبت دستورات مختلف
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_user_input))
+    # ساخت ConversationHandler
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+        states={
+            ASK_PHONE: [MessageHandler(Filters.text & ~Filters.command, ask_drink)],
+            ASK_DRINK: [MessageHandler(Filters.text & ~Filters.command, generate_and_send_recipe)],
+        },
+        fallbacks=[CommandHandler('cancel', cancel)],
+    )
 
-    # شروع ربات
+    dispatcher.add_handler(conv_handler)
+
     updater.start_polling()
     updater.idle()
 
