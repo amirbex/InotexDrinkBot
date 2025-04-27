@@ -1,38 +1,31 @@
-import pandas as pd
+import csv
 import os
 
-# فایل اکسل که داده‌ها در آن ذخیره می‌شود
-FILE_PATH = 'user_data.xlsx'
+# فایل CSV که داده‌ها در آن ذخیره می‌شود
+FILE_PATH = 'user_data.csv'
 
 def initialize_data_storage():
-    """ این تابع برای بررسی و ایجاد فایل اکسل استفاده می‌شود
-    اگر فایل اکسل وجود نداشته باشد، آن را ایجاد می‌کند.
-    """
+    """بررسی و ایجاد فایل CSV اگر وجود نداشته باشد."""
     if not os.path.exists(FILE_PATH):
-        # اگر فایل وجود نداشته باشد، یک فایل جدید با سرصفحه ایجاد می‌کنیم
-        df = pd.DataFrame(columns=['نام کاربر', 'شماره تلفن', 'نوشیدنی انتخابی', 'رسپی'])
-        df.to_excel(FILE_PATH, index=False)
+        with open(FILE_PATH, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(['نام کاربر', 'شماره تلفن', 'نوشیدنی انتخابی', 'رسپی'])
 
 def store_user_data(user_name: str, user_phone: str, selected_drink: str, recipe: dict):
-    """ این تابع برای ذخیره‌سازی اطلاعات کاربر و نوشیدنی انتخابی او در فایل اکسل استفاده می‌شود.
-    """
-    # ابتدا داده‌ها را به یک DataFrame تبدیل می‌کنیم
+    """ذخیره اطلاعات کاربر و نوشیدنی انتخابی در فایل CSV."""
     recipe_text = "\n".join([f"{ingredient}: {quantity}" for ingredient, quantity in recipe.items()])
-    new_data = {
-        'نام کاربر': user_name,
-        'شماره تلفن': user_phone,
-        'نوشیدنی انتخابی': selected_drink,
-        'رسپی': recipe_text
-    }
+    new_data = [user_name, user_phone, selected_drink, recipe_text]
 
-    # داده جدید را به فایل اکسل اضافه می‌کنیم
-    df = pd.read_excel(FILE_PATH)
-    df = df.append(new_data, ignore_index=True)
-    df.to_excel(FILE_PATH, index=False)
+    with open(FILE_PATH, mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(new_data)
 
 def get_all_user_data():
-    """ این تابع برای خواندن تمام داده‌های ذخیره‌شده از فایل اکسل استفاده می‌شود.
-    """
-    df = pd.read_excel(FILE_PATH)
-    return df
-
+    """خواندن تمام داده‌های ذخیره‌شده از فایل CSV."""
+    data = []
+    if os.path.exists(FILE_PATH):
+        with open(FILE_PATH, mode='r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                data.append(row)
+    return data
