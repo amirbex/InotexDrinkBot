@@ -54,6 +54,7 @@ def store_user_data(user_name, user_phone, selected_drink, recipe):
 
     with open(FILE_PATH, 'w') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+print(f"اطلاعات ذخیره شد: {new_data}")
 
 
 def generate_text(prompt: str) -> str:
