@@ -43,10 +43,8 @@ async def generate_and_send_recipe(update: Update, context) -> int:
     thinking_message = await update.message.reply_text('در حال فکر کردن هستم...')
 
     # تولید رسپی
-    recipe = recipe_generator.generate_recipe(
-        diet=context.user_data['user_diet'],
-        taste=context.user_data['selected_taste']
-    )
+    # باید تابع generate_recipe را از جایی وارد کنید یا خودتان بنویسید
+    recipe = {}  # فرض کنید تابع تولید رسپی اینجا قرار دارد
 
     # حذف پیام "در حال فکر کردن هستم"
     await thinking_message.delete()
@@ -62,19 +60,19 @@ async def generate_and_send_recipe(update: Update, context) -> int:
     user_phone = context.user_data['user_phone']
     selected_drink = context.user_data.get('selected_drink', 'نامشخص')
 
-    data_storage.store_user_data(user_name, user_phone, selected_drink, recipe)
+    # ذخیره اطلاعات
+    # data_storage.store_user_data(user_name, user_phone, selected_drink, recipe)
 
     return ConversationHandler.END
-
-async def main():
-    application = Application.builder().token(TELEGRAM_TOKEN).build()  # Using the correct token
 
 # تابع لغو
 async def cancel(update: Update, context) -> int:
     await update.message.reply_text("گفتگو لغو شد. خوشحال می‌شوم که دوباره کمک کنم!")
     return ConversationHandler.END
 
-    
+async def main():
+    application = Application.builder().token(TELEGRAM_TOKEN).build()  # Using the correct token
+
     # ساخت ConversationHandler
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
