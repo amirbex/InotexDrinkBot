@@ -1,6 +1,6 @@
 import random
 
-# لیست مواد مصرفی و مقادیر آن‌ها که به عنوان ورودی برای ساخت رسیپی استفاده می‌شود
+# لیست مواد اولیه
 ingredients = {
     'آب سیب': 50,
     'آب انار': 50,
@@ -24,7 +24,6 @@ ingredients = {
     'سیروپ گرین میکس': 15,
     'سیروپ گرانادین': 15,
     'سیروپ خیار': 15,
-    'سیروپ گواوا': 15,
     'سیروپ هل': 5,
     'سیروپ فلفل': 5,
     'سیروپ بادیان': 5,
@@ -38,21 +37,38 @@ ingredients = {
     'پرتقال': 10
 }
 
-def generate_recipe() -> dict:
-    """ تابعی برای تولید یک رسیپی تصادفی از مواد موجود
+# برچسب زدن ساده برای رژیم و طعم
+diet_ingredients = {
+    'vegan': ['آب سیب', 'آب انار', 'آب پرتقال', 'آب آلبالو', 'آب آناناس', 'آب انگور سفید', 'آب انگور سیاه', 'نکتار انبه', 'نکتار هلو'],
+    'normal': list(ingredients.keys()),  # همه چیز مجاز
+}
+
+taste_ingredients = {
+    'sweet': ['آب سیب', 'نکتار انبه', 'سیروپ توت فرنگی', 'سیروپ بلوبری', 'سیروپ موز'],
+    'sour': ['آب انار', 'آب آلبالو', 'لیمو زرد', 'سیروپ پشن فروت'],
+    'bitter': ['سیروپ هل', 'سیروپ ماسالا', 'رزماری']
+}
+
+def generate_recipe(diet: str = 'normal', taste: str = 'sweet') -> dict:
+    """ تولید رسیپی با درنظر گرفتن رژیم و طعم """
     
-    این تابع از مواد موجود و مقادیر آن‌ها برای تولید یک رسیپی نوشیدنی تصادفی استفاده می‌کند.
-    """
-    # انتخاب مواد به صورت تصادفی
-    num_ingredients = random.randint(4, 6)  # تعداد مواد را بین 4 تا 6 انتخاب می‌کند
-    selected_ingredients = random.sample(list(ingredients.items()), num_ingredients)
+    possible_ingredients = set(diet_ingredients.get(diet, ingredients.keys()))
+    taste_based_ingredients = set(taste_ingredients.get(taste, ingredients.keys()))
+    
+    filtered_ingredients = list(possible_ingredients & taste_based_ingredients)
+    
+    # اگر تقاطعی وجود نداشت، بیخیال taste می‌شود
+    if not filtered_ingredients:
+        filtered_ingredients = list(possible_ingredients)
+
+    num_ingredients = random.randint(4, 6)
+    selected = random.sample(filtered_ingredients, min(num_ingredients, len(filtered_ingredients)))
 
     recipe = {}
-    for ingredient, quantity in selected_ingredients:
-        recipe[ingredient] = f"{quantity} میلی لیتر"
+    for item in selected:
+        quantity = ingredients[item]
+        recipe[item] = f"{quantity} میلی لیتر"
 
-    # اضافه کردن دستورالعمل‌ها
-    recipe['دستورالعمل'] = "لیوان را سرد کرده و سپس مواد را داخل لیوان اضافه کرده و به خوبی هم بزنید."
+    recipe['دستورالعمل'] = "لیوان را سرد کرده و مواد انتخاب شده را با یخ مخلوط کنید. سرو کنید."
 
     return recipe
-
