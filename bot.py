@@ -1,3 +1,5 @@
+from telegram import Update, CallbackContext
+
 # استیج‌های گفتگو
 ASK_PHONE, ASK_DIET, ASK_TASTE = range(3)
 
