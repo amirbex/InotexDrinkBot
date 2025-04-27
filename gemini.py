@@ -2,7 +2,8 @@ import os
 import google.generativeai as genai
 
 # مقداردهی اولیه به کلید API
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=OPENAI_API_KEY)
+
 
 # انتخاب مدل
 model = genai.GenerativeModel("gemini-pro")
