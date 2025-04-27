@@ -1,9 +1,9 @@
 import os
 import google.generativeai as genai
+from config import OPENAI_API_KEY  # این خط باید اضافه بشه
 
 # مقداردهی اولیه به کلید API
 genai.configure(api_key=OPENAI_API_KEY)
-
 
 # انتخاب مدل
 model = genai.GenerativeModel("gemini-pro")
