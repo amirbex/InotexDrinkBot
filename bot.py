@@ -69,6 +69,12 @@ async def generate_and_send_recipe(update: Update, context) -> int:
 async def main():
     application = Application.builder().token(TELEGRAM_TOKEN).build()  # Using the correct token
 
+# تابع لغو
+async def cancel(update: Update, context) -> int:
+    await update.message.reply_text("گفتگو لغو شد. خوشحال می‌شوم که دوباره کمک کنم!")
+    return ConversationHandler.END
+
+    
     # ساخت ConversationHandler
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
