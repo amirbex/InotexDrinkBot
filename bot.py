@@ -9,8 +9,8 @@ import google.generativeai as genai
 
 # تنظیمات
 nest_asyncio.apply()
-TELEGRAM_TOKEN = 'توکن_تلگرام'
-OPENAI_API_KEY = 'کلید_API_Gemini'
+TELEGRAM_TOKEN = '7756017839:AAGDutU2oiRDBVpE7U78kL9b8e7ViInBiUI'
+OPENAI_API_KEY = 'AIzaSyC8VK_y5ESVLZNXI80wy7KBJ5_IxEoxh7E'
 FILE_PATH = 'user_data.json'
 
 # تنظیمات مدل
