@@ -83,24 +83,33 @@ ASK_PHONE, ASK_DIET, ASK_TASTE = range(3)
 async def start(update: Update, context):
     user = update.effective_user
     await update.message.reply_text(
-        f"سلام {user.first_name}! 🌟\n\n"
-        "به ربات خوش اومدی. لطفاً شماره موبایل خودت رو وارد کن 📱"
+        f"سلام {user.first_name}! 👋✨\n\n"
+        "من دستیار هوشمند غرفه‌ی نوشیدنی‌های سلامت در نمایشگاه هستم. 🍹🎉\n"
+        "خوشحالم که اینجایی! برای شروع لطفاً شماره موبایلت رو وارد کن 📱"
     )
     return ASK_PHONE
 
 async def ask_diet(update: Update, context):
     context.user_data['user_phone'] = update.message.text
-    await update.message.reply_text("آیا رژیم غذایی خاصی داری؟ (معمولی، وگان، بدون قند...)")
+    await update.message.reply_text(
+        "ممنونم! 🌟\n"
+        "حالا میشه بگی رژیم غذایی خاصی داری؟ مثلاً:\n"
+        "معمولی، وگان، بدون قند، کم کالری یا هر چیزی که دوست داری... 🍃"
+    )
     return ASK_DIET
 
 async def ask_taste(update: Update, context):
     context.user_data['user_diet'] = update.message.text
-    await update.message.reply_text("طعم مورد علاقه‌ات چیه؟ (شیرین، ترش، متعادل...)")
+    await update.message.reply_text(
+        "عالیه! 😍\n"
+        "حالا بگو طعم دلخواهت چیه؟\n"
+        "شیرین، ترش، متعادل یا هر چیزی که دوست داری بنوشی 🍯🍋✨"
+    )
     return ASK_TASTE
 
 async def generate_and_send_recipe(update: Update, context):
     context.user_data['selected_taste'] = update.message.text
-    thinking_message = await update.message.reply_text('🍹 لطفاً چند لحظه صبر کن، در حال آماده‌سازی نوشیدنی هستم...')
+    thinking_message = await update.message.reply_text('🤔 دارم بهترین نوشیدنی رو برات آماده می‌کنم... لطفاً چند لحظه صبر کن! 🍸')
 
     recipe, instructions, benefits = await generate_drink(
         selected_diet=context.user_data['user_diet'],
@@ -109,15 +118,27 @@ async def generate_and_send_recipe(update: Update, context):
 
     await thinking_message.delete()
 
+    # نمایش مواد اولیه با مقدار
     recipe_text = "\n".join([f"▫️ {ingredient}: {amount}" for ingredient, amount in recipe.items()])
-
     await update.message.reply_text(f"📋 مواد اولیه نوشیدنی شما:\n\n{recipe_text}")
-    await update.message.reply_text(f"🍸 طرز تهیه:\n\n{instructions}")
-    await update.message.reply_text(f"🌿 خواص سلامتی:\n\n{benefits}")
 
-    store_user_data(update.effective_user.first_name, context.user_data['user_phone'], context.user_data['selected_taste'], recipe)
+    # نمایش طرز تهیه فقط با نام مواد بدون مقدار
+    instructions_text = "\n".join([f"▫️ {ingredient}" for ingredient in recipe.keys()]) + f"\n\n{instructions}"
+    await update.message.reply_text(f"🍸 طرز تهیه:\n\n{instructions_text}")
+
+    # نمایش خواص سلامتی فقط با نام مواد
+    benefits_text = "\n".join([f"▫️ {ingredient}" for ingredient in recipe.keys()]) + f"\n\n{benefits}"
+    await update.message.reply_text(f"🌿 خواص سلامتی:\n\n{benefits_text}")
+
+    store_user_data(
+        update.effective_user.first_name,
+        context.user_data['user_phone'],
+        context.user_data['selected_taste'],
+        recipe
+    )
 
     return ConversationHandler.END
+
 
 async def cancel(update: Update, context):
     await update.message.reply_text("❌ گفتگو لغو شد. هر زمان خواستی با /start دوباره شروع کن.")
