@@ -1,10 +1,11 @@
-from telegram import Update, CallbackContext
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 
 # استیج‌های گفتگو
 ASK_PHONE, ASK_DIET, ASK_TASTE = range(3)
 
 # استارت ربات
-async def start(update: Update, context: CallbackContext) -> int:
+async def start(update: Update, context) -> int:
     user = update.effective_user
     await update.message.reply_text(
         f"سلام {user.first_name} عزیز! خوش اومدی به Inotex Drink Bot 🍹\n"
@@ -13,7 +14,7 @@ async def start(update: Update, context: CallbackContext) -> int:
     return ASK_PHONE
 
 # دریافت شماره تلفن
-async def ask_diet(update: Update, context: CallbackContext) -> int:
+async def ask_diet(update: Update, context) -> int:
     user_phone = update.message.text
     context.user_data['user_phone'] = user_phone
 
@@ -23,7 +24,7 @@ async def ask_diet(update: Update, context: CallbackContext) -> int:
     return ASK_DIET
 
 # دریافت رژیم غذایی
-async def ask_taste(update: Update, context: CallbackContext) -> int:
+async def ask_taste(update: Update, context) -> int:
     user_diet = update.message.text
     context.user_data['user_diet'] = user_diet
 
@@ -33,7 +34,7 @@ async def ask_taste(update: Update, context: CallbackContext) -> int:
     return ASK_TASTE
 
 # دریافت طعم و تولید رسپی
-async def generate_and_send_recipe(update: Update, context: CallbackContext) -> int:
+async def generate_and_send_recipe(update: Update, context) -> int:
     selected_taste = update.message.text
     context.user_data['selected_taste'] = selected_taste
 
@@ -63,3 +64,25 @@ async def generate_and_send_recipe(update: Update, context: CallbackContext) -> 
     data_storage.store_user_data(user_name, user_phone, selected_drink, recipe)
 
     return ConversationHandler.END
+
+async def main():
+    application = Application.builder().token(config.TOKEN).build()
+
+    # ساخت ConversationHandler
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+        states={
+            ASK_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_diet)],
+            ASK_DIET: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_taste)],
+            ASK_TASTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, generate_and_send_recipe)],
+        },
+        fallbacks=[CommandHandler('cancel', cancel)],
+    )
+
+    application.add_handler(conv_handler)
+
+    await application.run_polling()
+
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(main())
