@@ -136,20 +136,22 @@ async def generate_and_send_recipe(update: Update, context) -> int:
 
     await thinking_message.delete()
 
+    # فرستادن مرحله‌ای
     recipe_text = "\n".join([f"▫️ {ingredient}: {quantity}" for ingredient, quantity in recipe.items()])
-    
-    final_message = f"""✨ نوشیدنی پیشنهادی شما آماده شد!
+
+    await update.message.reply_text(f"""✨ نوشیدنی پیشنهادی شما آماده شد!
 
 📋 مواد اولیه:
 {recipe_text}
+""")
 
-🍸 طرز تهیه:
+    await update.message.reply_text(f"""🍸 طرز تهیه:
 {instructions}
+""")
 
-🌿 خواص مواد مصرفی:
+    await update.message.reply_text(f"""🌿 خواص مواد مصرفی:
 {benefits}
-"""
-    await update.message.reply_text(final_message)
+""")
 
     store_user_data(update.effective_user.first_name, context.user_data['user_phone'], selected_taste, recipe)
 
