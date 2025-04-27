@@ -82,10 +82,9 @@ def store_user_data(user_name: str, user_phone: str, selected_drink: str, recipe
     with open(FILE_PATH, 'w') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# تولید رسپی
 def generate_recipe(diet: str = 'normal', taste: str = 'sweet'):
-    possible_ingredients = set(ingredients.keys())
-    filtered_ingredients = random.sample(possible_ingredients, random.randint(4, 6))
+    possible_ingredients = list(ingredients.keys())  # تبدیل به لیست
+    filtered_ingredients = random.sample(possible_ingredients, random.randint(4, 6))  # استفاده از نمونه تصادفی
     recipe = {item: f"{ingredients[item]} میلی لیتر" for item in filtered_ingredients}
     
     prompt = f"با استفاده از مواد زیر، لطفاً یک دستورالعمل حرفه‌ای برای ساخت نوشیدنی بنویس.\nمواد اولیه:\n{', '.join(filtered_ingredients)}"
