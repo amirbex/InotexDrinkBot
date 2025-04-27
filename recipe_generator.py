@@ -1,4 +1,5 @@
 import random
+from gemini import generate_text  # فرض می‌کنیم یه فایل gemini.py داریم برای ارتباط با مدل
 
 # لیست مواد اولیه
 ingredients = {
@@ -37,10 +38,9 @@ ingredients = {
     'پرتقال': 10
 }
 
-# برچسب زدن ساده برای رژیم و طعم
 diet_ingredients = {
     'vegan': ['آب سیب', 'آب انار', 'آب پرتقال', 'آب آلبالو', 'آب آناناس', 'آب انگور سفید', 'آب انگور سیاه', 'نکتار انبه', 'نکتار هلو'],
-    'normal': list(ingredients.keys()),  # همه چیز مجاز
+    'normal': list(ingredients.keys()),
 }
 
 taste_ingredients = {
@@ -49,15 +49,13 @@ taste_ingredients = {
     'bitter': ['سیروپ هل', 'سیروپ ماسالا', 'رزماری']
 }
 
-def generate_recipe(diet: str = 'normal', taste: str = 'sweet') -> dict:
-    """ تولید رسیپی با درنظر گرفتن رژیم و طعم """
-    
+def generate_recipe(diet: str = 'normal', taste: str = 'sweet'):
+    """ تولید رسپی + دریافت دستور ساخت و فواید با هوش مصنوعی """
+
     possible_ingredients = set(diet_ingredients.get(diet, ingredients.keys()))
     taste_based_ingredients = set(taste_ingredients.get(taste, ingredients.keys()))
-    
     filtered_ingredients = list(possible_ingredients & taste_based_ingredients)
-    
-    # اگر تقاطعی وجود نداشت، بیخیال taste می‌شود
+
     if not filtered_ingredients:
         filtered_ingredients = list(possible_ingredients)
 
@@ -69,6 +67,30 @@ def generate_recipe(diet: str = 'normal', taste: str = 'sweet') -> dict:
         quantity = ingredients[item]
         recipe[item] = f"{quantity} میلی لیتر"
 
-    recipe['دستورالعمل'] = "لیوان را سرد کرده و مواد انتخاب شده را با یخ مخلوط کنید. سرو کنید."
+    # ساخت پیام برای مدل
+    prompt = f"""
+    با استفاده از مواد زیر، لطفاً:
+    - یک دستورالعمل حرفه‌ای برای ساخت نوشیدنی بنویس
+    - سپس فواید سلامتی احتمالی این نوشیدنی را توضیح بده.
 
-    return recipe
+    مواد اولیه:
+    {', '.join(selected)}
+    
+    پاسخ را به این صورت بده:
+    دستور ساخت:
+    [اینجا بنویس]
+
+    فواید سلامتی:
+    [اینجا بنویس]
+    """
+
+    response = generate_text(prompt)
+
+    # تفکیک دستور ساخت و فواید سلامتی
+    if "فواید سلامتی:" in response:
+        instructions_part, benefits_part = response.split("فواید سلامتی:", 1)
+    else:
+        instructions_part, benefits_part = response, "اطلاعاتی موجود نیست."
+
+    instructions = instructions_part.replace("دستور ساخت:", "").strip()
+    benefits = benefits
