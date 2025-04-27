@@ -9,8 +9,8 @@ import google.generativeai as genai
 
 # --- تنظیمات اولیه ---
 nest_asyncio.apply()
-TELEGRAM_TOKEN = 'توکن-تلگرام-اینجا'
-GOOGLE_API_KEY = 'کلید-جمینی-اینجا'
+TELEGRAM_TOKEN = '7843819663:AAED6HyqaLKdANVHq3kvqvYua9koAJp14Ts'
+OPENAI_API_KEY = 'AIzaSyC8VK_y5ESVLZNXI80wy7KBJ5_IxEoxh7E'
 FILE_PATH = 'user_data.json'
 
 genai.configure(api_key=GOOGLE_API_KEY)
