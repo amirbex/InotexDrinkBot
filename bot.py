@@ -40,11 +40,21 @@ def store_user_data(user_name, user_phone, selected_drink, recipe):
         'نوشیدنی انتخابی': selected_drink,
         'رسپی': recipe
     }
-    with open(FILE_PATH, 'r') as f:
-        data = json.load(f)
+    # اگر فایل خالی یا خراب بود، data رو [] در نظر بگیر
+    if not os.path.exists(FILE_PATH) or os.stat(FILE_PATH).st_size == 0:
+        data = []
+    else:
+        try:
+            with open(FILE_PATH, 'r') as f:
+                data = json.load(f)
+        except json.JSONDecodeError:
+            data = []
+
     data.append(new_data)
+
     with open(FILE_PATH, 'w') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+
 
 def generate_text(prompt: str) -> str:
     try:
