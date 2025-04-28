@@ -6,16 +6,40 @@ import json
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 import google.generativeai as genai
+from sqlalchemy import create_engine, Column, Integer, String, JSON
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 # --- تنظیمات اولیه ---
 nest_asyncio.apply()
-TELEGRAM_TOKEN = '7843819663:AAED6HyqaLKdANVHq3kvqvYua9koAJp14Ts'
-GOOGLE_API_KEY = 'AIzaSyC8VK_y5ESVLZNXI80wy7KBJ5_IxEoxh7E'
-FILE_PATH = 'user_data.json'
+TELEGRAM_TOKEN = '7843819663:AAED6HyqaLKdANVHq3kvqvYua9koAJp14Ts'  # توکن ربات (از محیط Railway بگیرید)
+GOOGLE_API_KEY = 'AIzaSyC8VK_y5ESVLZNXI80wy7KBJ5_IxEoxh7E'    # کلید Gemini (از محیط Railway بگیرید)
+DATABASE_URL = os.getenv('postgresql://postgres:ppQoBEtQHbWQCPFHTlkpTFuucMOysfWW@mainline.proxy.rlwy.net:55458/railway')  # متغیر محیطی از Railway
 
+# تنظیمات Gemini
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel(model_name="models/gemini-1.5-pro")
 
+# تنظیمات دیتابیس
+engine = create_engine(DATABASE_URL)
+Base = declarative_base()
+
+# تعریف مدل کاربر
+class UserData(Base):
+    __tablename__ = 'user_data'
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    phone = Column(String)
+    selected_drink = Column(String)
+    recipe = Column(JSON)  # برای ذخیره دیکشنری رسپی
+
+# ایجاد جدول‌ها
+Base.metadata.create_all(engine)
+
+# ایجاد سشن برای تعامل با دیتابیس
+Session = sessionmaker(bind=engine)
+
+# مواد اولیه
 ingredients = {
     'آب سیب': 50, 'آب انار': 50, 'آب آلبالو': 50, 'آب پرتقال': 50, 'آب آناناس': 50,
     'آب انگور سفید': 50, 'آب انگور سیاه': 50, 'نکتار انبه': 50, 'نکتار پرتقال پالپ دار': 50,
@@ -28,34 +52,22 @@ ingredients = {
 }
 
 # --- توابع ---
-def initialize_data_storage():
-    if not os.path.exists(FILE_PATH):
-        with open(FILE_PATH, 'w') as f:
-            json.dump([], f)
-
 def store_user_data(user_name, user_phone, selected_drink, recipe):
-    new_data = {
-        'نام کاربر': user_name,
-        'شماره تلفن': user_phone,
-        'نوشیدنی انتخابی': selected_drink,
-        'رسپی': recipe
-    }
-    # اگر فایل خالی یا خراب بود، data رو [] در نظر بگیر
-    if not os.path.exists(FILE_PATH) or os.stat(FILE_PATH).st_size == 0:
-        data = []
-    else:
-        try:
-            with open(FILE_PATH, 'r') as f:
-                data = json.load(f)
-        except json.JSONDecodeError:
-            data = []
-
-    data.append(new_data)
-
-    with open(FILE_PATH, 'w') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-
-
+    session = Session()
+    try:
+        new_user = UserData(
+            name=user_name,
+            phone=user_phone,
+            selected_drink=selected_drink,
+            recipe=recipe
+        )
+        session.add(new_user)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"خطا در ذخیره‌سازی: {e}")
+    finally:
+        session.close()
 
 def generate_text(prompt: str) -> str:
     try:
@@ -70,7 +82,6 @@ async def generate_drink(selected_diet: str, selected_taste: str):
     selected_items = random.sample(possible_ingredients, random.randint(4, 6))
     recipe = {item: f"{ingredients[item]} میلی لیتر" for item in selected_items}
 
-    # آماده‌سازی دیتای دقیق برای مدل
     ingredients_list = "\n".join([f"- {item}: {ingredients[item]}ml" for item in selected_items])
 
     instruction_prompt = (
@@ -95,7 +106,7 @@ async def start(update: Update, context):
     user = update.effective_user
     await update.message.reply_text(
         f"سلام {user.first_name}! 👋✨\n\n"
- "من دستیار هوشمند تهیه دستورالعمل نوشیدنی در غرفه‌ی اکسیر در نمایشگاه اینوتکس 2025 هستم با چند تا سوال خیلی سریع بهت یه دستورالعمل میدم . 🍹🎉\n"
+        "من دستیار هوشمند تهیه دستورالعمل نوشیدنی در غرفه‌ی اکسیر در نمایشگاه اینوتکس 2025 هستم با چند تا سوال خیلی سریع بهت یه دستورالعمل میدم . 🍹🎉\n"
         "خوشحالم که اینجایی! برای شروع لطفاً شماره موبایلت رو وارد کن 📱"
     )
     return ASK_PHONE
@@ -129,15 +140,12 @@ async def generate_and_send_recipe(update: Update, context):
 
     await thinking_message.delete()
 
-    # نمایش مواد اولیه با مقدار
     recipe_text = "\n".join([f"▫️ {ingredient}: {amount}" for ingredient, amount in recipe.items()])
     await update.message.reply_text(f"📋 مواد اولیه نوشیدنی شما:\n\n{recipe_text}")
 
-    # نمایش طرز تهیه فقط با نام مواد بدون مقدار
     instructions_text = "\n".join([f"▫️ {ingredient}" for ingredient in recipe.keys()]) + f"\n\n{instructions}"
     await update.message.reply_text(f"🍸 طرز تهیه:\n\n{instructions_text}")
 
-    # نمایش خواص سلامتی فقط با نام مواد
     benefits_text = "\n".join([f"▫️ {ingredient}" for ingredient in recipe.keys()]) + f"\n\n{benefits}"
     await update.message.reply_text(f"🌿 خواص سلامتی:\n\n{benefits_text}")
 
@@ -150,13 +158,11 @@ async def generate_and_send_recipe(update: Update, context):
 
     return ConversationHandler.END
 
-
 async def cancel(update: Update, context):
     await update.message.reply_text("❌ گفتگو لغو شد. هر زمان خواستی با /start دوباره شروع کن.")
     return ConversationHandler.END
 
 async def main():
-    initialize_data_storage()
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
