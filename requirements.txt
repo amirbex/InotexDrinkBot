@@ -1,3 +1,6 @@
-python-telegram-bot==20.6
-nest_asyncio
+
+python-telegram-bot==20.7
 google-generativeai
+sqlalchemy==2.0.31
+psycopg2-binary==2.9.9
+nest_asyncio
