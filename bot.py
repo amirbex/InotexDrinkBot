@@ -20,8 +20,8 @@ keyboard = [
 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # مواد اولیه
-SYRUP_SIZES = [10, 25, 50]
-JUICE_SIZES = [, 25, 50, 80]
+SYRUP_SIZES = [10, 25, 50, 80]
+JUICE_SIZES = [10, 25, 50, 80]
 
 SYRUPS = [
     "پاپ کرن", "بلک بری", "گرانادین", "زعفران", "خیار", "گرین میکس", "وانیل",
@@ -35,7 +35,6 @@ JUICES = [
     "انبه", "انگور سفید", "انگور سیاه"
 ]
 
-
 FRUITS = [
     "ریحان ایتالیایی", "لیمو زرد", "گل خوراکی", "نعنا تازه", "توت فرنگی", "پرتقال تازه"
 ]
@@ -45,7 +44,7 @@ HERBS = [
 ]
 
 # تنظیم توکن مدل جمینای
-openai.api_key = 'AIzaSyC8VK_y5ESVLZNXI80wy7KBJ5_IxEoxh7E'
+openai.api_key = 'YOUR_GEMINI_API_KEY'
 
 def generate_recipe():
     recipe = []
@@ -127,14 +126,14 @@ async def send_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def chat_after_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
 
-    # Start live chat with Gemini (or similar)
+    # شروع مکالمه زنده با Gemini
     if user_text.lower() in ['رسپی جدید', 'شروع مجدد']:
         await update.message.reply_text("باشه! سوال جدید: چه طعمی دوست داری؟ 🍋🍫🌸")
         return ASK_PREFERENCES
 
-    # Respond to questions about the recipe using ChatCompletion
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",  # or any other appropriate model
+    # پاسخ به سوالات درباره رسپی
+    response = openai.Completion.create(
+        model="gpt-3.5-turbo",  # یا هر مدل مناسب دیگر
         messages=[
             {"role": "system", "content": "You are a helpful assistant in a bar."},
             {"role": "user", "content": user_text}
@@ -146,12 +145,11 @@ async def chat_after_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return CHAT_AFTER_RECIPE
 
-
 async def fallback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("لطفاً از گزینه‌های موجود استفاده کن 🙏")
 
 def main():
-    app = ApplicationBuilder().token("7843819663:AAED6HyqaLKdANVHq3kvqvYua9koAJp14Ts").build()
+    app = ApplicationBuilder().token("YOUR_TELEGRAM_BOT_TOKEN").build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
