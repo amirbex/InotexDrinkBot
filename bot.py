@@ -1,174 +1,173 @@
-import nest_asyncio
-import asyncio
-import random
-import os
-import json
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
-import google.generativeai as genai
+import logging
+import openai
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
-# --- تنظیمات اولیه ---
-nest_asyncio.apply()
-TELEGRAM_TOKEN = '7843819663:AAED6HyqaLKdANVHq3kvqvYua9koAJp14Ts'
-GOOGLE_API_KEY = 'AIzaSyC8VK_y5ESVLZNXI80wy7KBJ5_IxEoxh7E'
-FILE_PATH = 'user_data.json'
+# فعال کردن لاگ
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
-genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel(model_name="models/gemini-1.5-pro")
+# توکن جمینای
+openai.api_key = "AIzaSyC8VK_y5ESVLZNXI80wy7KBJ5_IxEoxh7E"
 
-ingredients = {
-    'آب سیب': 50, 'آب انار': 50, 'آب آلبالو': 50, 'آب پرتقال': 50, 'آب آناناس': 50,
-    'آب انگور سفید': 50, 'آب انگور سیاه': 50, 'نکتار انبه': 50, 'نکتار پرتقال پالپ دار': 50,
-    'نکتار هلو': 50, 'نکتار هفت میوه': 50, 'سیروپ توت فرنگی': 15, 'سیروپ پشن فروت': 15,
-    'سیروپ بلوبری': 15, 'سیروپ بلک بری': 15, 'سیروپ انگور': 15, 'سیروپ گواوا': 15,
-    'سیروپ موز': 15, 'سیروپ بلوکارسائو': 15, 'سیروپ گرین میکس': 15, 'سیروپ گرانادین': 15,
-    'سیروپ خیار': 15, 'سیروپ هل': 5, 'سیروپ فلفل': 5, 'سیروپ بادیان': 5, 'سیروپ ماسالا': 5,
-    'ریحان': 5, 'لیمو زرد': 10, 'گل خوراکی': 5, 'رزماری': 5, 'نعنا تازه': 5,
-    'توت فرنگی': 10, 'پرتقال': 10
-}
+# استیج‌های مکالمه
+ASK_PHONE, ASK_PREFERENCES, SEND_RECIPE, CHAT_AFTER_RECIPE = range(4)
 
-# --- توابع ---
-def initialize_data_storage():
-    if not os.path.exists(FILE_PATH):
-        with open(FILE_PATH, 'w') as f:
-            json.dump([], f)
+# دکمه‌های ثابت
+keyboard = [
+    [KeyboardButton("▶️ شروع مجدد"), KeyboardButton("🧃 رسپی جدید")]
+]
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-def store_user_data(user_name, user_phone, selected_drink, recipe):
-    new_data = {
-        'نام کاربر': user_name,
-        'شماره تلفن': user_phone,
-        'نوشیدنی انتخابی': selected_drink,
-        'رسپی': recipe
-    }
-    # اگر فایل خالی یا خراب بود، data رو [] در نظر بگیر
-    if not os.path.exists(FILE_PATH) or os.stat(FILE_PATH).st_size == 0:
-        data = []
-    else:
-        try:
-            with open(FILE_PATH, 'r') as f:
-                data = json.load(f)
-        except json.JSONDecodeError:
-            data = []
+# مواد اولیه
+SYRUPS = [
+    "پاپ کرن", "بلک بری", "گرانادین", "زعفران", "خیار", "گرین میکس", "وانیل",
+    "شکلات", "آیریش", "ردمیکس", "پشن فروت", "رام", "آدامس آبی", "گواوا",
+    "ویمتو", "کوکی", "فندق", "بادیان", "چای تی"
+]
 
-    data.append(new_data)
+JUICES = [
+    "آلبالو", "آبلیمو طبیعی", "پرتقال", "میکس کرنبری گریپ فروت", "آناناس",
+    "آناناس استار فروت", "آب گوجه", "کیوی لیمو", "سیب سبز", "هلو",
+    "انبه", "انگور سفید", "انگور سیاه", "سودا گازدار"
+]
 
-    with open(FILE_PATH, 'w') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+FRUITS = [
+    "ریحان ایتالیایی", "لیمو زرد", "گل خوراکی", "نعنا تازه", "توت فرنگی", "پرتقال تازه"
+]
 
+HERBS = [
+    "کاسنی", "بیدمشک", "بهارنارنج"
+]
 
-
-def generate_text(prompt: str) -> str:
-    try:
-        response = model.generate_content([prompt])
-        return response.candidates[0].content.parts[0].text
-    except Exception as e:
-        print(f"خطا در ارتباط با Gemini: {e}")
-        return "خطایی در تولید متن رخ داده است."
-
-async def generate_drink(selected_diet: str, selected_taste: str):
-    possible_ingredients = list(ingredients.keys())
-    selected_items = random.sample(possible_ingredients, random.randint(4, 6))
-    recipe = {item: f"{ingredients[item]} میلی لیتر" for item in selected_items}
-
-    # آماده‌سازی دیتای دقیق برای مدل
-    ingredients_list = "\n".join([f"- {item}: {ingredients[item]}ml" for item in selected_items])
-
-    instruction_prompt = (
-        f"یک دستور تهیه دقیق و حرفه‌ای برای یک نوشیدنی بدون الکل فقط با مواد زیر بنویس. "
-        f"طعم نوشیدنی باید {selected_taste} باشد و مناسب رژیم {selected_diet} طراحی شود:\n{ingredients_list}\n"
-        "لطفاً مرحله به مرحله توضیح بده."
-    )
-
-    benefits_prompt = (
-        f"خواص و فواید سلامتی هر یک از این مواد را جداگانه و مختصر توضیح بده:\n{ingredients_list}"
-    )
-
-    instructions = generate_text(instruction_prompt)
-    benefits = generate_text(benefits_prompt)
-
-    return recipe, instructions, benefits
-
-# --- وضعیت‌های مکالمه ---
-ASK_PHONE, ASK_DIET, ASK_TASTE = range(3)
-
-async def start(update: Update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+
+    # پیام اول: احوالپرسی
+    await update.message.reply_text(f"سلام {user.first_name}! 👋")
+
+    # پیام دوم: معرفی
     await update.message.reply_text(
-        f"سلام {user.first_name}! 👋✨\n\n"
- "من دستیار هوشمند تهیه دستورالعمل نوشیدنی در غرفه‌ی اکسیر در نمایشگاه اینوتکس 2025 هستم با چند تا سوال خیلی سریع بهت یه دستورالعمل میدم . 🍹🎉\n"
-        "خوشحالم که اینجایی! برای شروع لطفاً شماره موبایلت رو وارد کن 📱"
+        "من دستیار هوشمند تهیه دستورالعمل نوشیدنی در غرفه‌ی اکسیر در نمایشگاه اینوتکس 2025 هستم!\n"
+        "این ربات یک نمونه اولیه از یک طرح در حال توسعه است.\n"
+        "من اینجا با چند تا سوال خیلی سریع بهت یه دستورالعمل تهیه نوشیدنی میدم. 🍹🎉"
     )
+
+    # پیام سوم: درخواست شماره موبایل
+    await update.message.reply_text(
+        "خوشحالم که اینجایی! برای شروع لطفاً شماره موبایلت رو وارد کن 📱",
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("ارسال شماره تلفن", request_contact=True)]], resize_keyboard=True)
+    )
+
     return ASK_PHONE
 
-async def ask_diet(update: Update, context):
-    context.user_data['user_phone'] = update.message.text
+async def ask_preferences(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # دریافت شماره موبایل
+    if update.message.contact:
+        phone_number = update.message.contact.phone_number
+        context.user_data['phone_number'] = phone_number
+        await update.message.reply_text("ممنونم! حالا آماده‌ایم برای ساخت یه نوشیدنی عالی! 🥂")
+    else:
+        await update.message.reply_text("لطفاً شماره موبایلت رو از طریق دکمه ارسال کن. 📱")
+        return ASK_PHONE
+
+    await update.message.reply_text("بگو طعمی که دوست داری چیه؟ ترش، شیرین یا خاص؟")
+    return ASK_PREFERENCES
+
+async def send_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_pref = update.message.text
+
+    import random
+
+    recipe = []
+    total_volume = 0
+
+    # اضافه کردن سیروپ‌ها (با رعایت حجم حداکثر ۵۰ میل)
+    syrup = random.choice(SYRUPS)
+    syrup_volume = random.randint(20, 50)
+    total_volume += syrup_volume
+    recipe.append(f"{syrup_volume}ml سیروپ {syrup}")
+
+    # اضافه کردن آبمیوه‌ها
+    for _ in range(2):
+        juice = random.choice(JUICES)
+        juice_volume = random.randint(50, 80)
+        total_volume += juice_volume
+        recipe.append(f"{juice_volume}ml آب {juice}")
+
+    # اضافه کردن میوه یا سبزی تازه
+    fruit = random.choice(FRUITS)
+    recipe.append(f"مقداری {fruit} تازه 🍃")
+
+    # اضافه کردن عرقیات
+    herb = random.choice(HERBS)
+    recipe.append(f"چند قطره عرق {herb}")
+
+    # بالانس حجم تا ۲۸۰ میل
+    if total_volume < 280:
+        remaining = 280 - total_volume
+        recipe.append(f"{remaining}ml آب سودا یا آب ساده")
+
+    # ارسال رسپی
     await update.message.reply_text(
-        "ممنونم! 🌟\n"
-        "حالا میشه بگی رژیم غذایی خاصی داری؟ مثلاً:\n"
-        "معمولی، وگان، بدون قند، کم کالری یا هر چیزی که دوست داری... 🍃"
+        f"🥤 رسپی پیشنهادی برای تو:\n\n" +
+        "\n".join(recipe) +
+        "\n\n✨ طرز تهیه: همه مواد رو تو شیکر با یخ مخلوط کن و سرو کن!"
     )
-    return ASK_DIET
 
-async def ask_taste(update: Update, context):
-    context.user_data['user_diet'] = update.message.text
+    # ارسال پیام به جمینای برای دریافت خواص
+    response = openai.ChatCompletion.create(
+        model="gpt-4",  # اگر مدل جمینای مشابه باشد
+        messages=[
+            {"role": "system", "content": "شما یک دستیار هوش مصنوعی برای ارائه خواص نوشیدنی‌ها هستید."},
+            {"role": "user", "content": f"چه خواصی دارد ترکیب {', '.join(recipe)}؟"},
+        ]
+    )
+    gemini_reply = response['choices'][0]['message']['content']
+    await update.message.reply_text(gemini_reply)
+
     await update.message.reply_text(
-        "عالیه! 😍\n"
-        "حالا بگو طعم دلخواهت چیه؟\n"
-        "شیرین، ترش، متعادل یا هر چیزی که دوست داری بنوشی 🍯🍋✨"
-    )
-    return ASK_TASTE
-
-async def generate_and_send_recipe(update: Update, context):
-    context.user_data['selected_taste'] = update.message.text
-    thinking_message = await update.message.reply_text('🤔 دارم بهترین نوشیدنی رو برات آماده می‌کنم... لطفاً چند لحظه صبر کن! 🍸')
-
-    recipe, instructions, benefits = await generate_drink(
-        selected_diet=context.user_data['user_diet'],
-        selected_taste=context.user_data['selected_taste']
+        "خواص ترکیب: افزایش انرژی، طراوت پوست، نشاط ذهنی! 🌿✨",
+        reply_markup=reply_markup
     )
 
-    await thinking_message.delete()
+    return CHAT_AFTER_RECIPE
 
-    # نمایش مواد اولیه با مقدار
-    recipe_text = "\n".join([f"▫️ {ingredient}: {amount}" for ingredient, amount in recipe.items()])
-    await update.message.reply_text(f"📋 مواد اولیه نوشیدنی شما:\n\n{recipe_text}")
+async def chat_after_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_text = update.message.text
 
-    # نمایش طرز تهیه فقط با نام مواد بدون مقدار
-    instructions_text = "\n".join([f"▫️ {ingredient}" for ingredient in recipe.keys()]) + f"\n\n{instructions}"
-    await update.message.reply_text(f"🍸 طرز تهیه:\n\n{instructions_text}")
+    if user_text == "▶️ شروع مجدد":
+        return await start(update, context)
+    if user_text == "🧃 رسپی جدید":
+        await update.message.reply_text("باشه! سوال جدید: چه طعمی دوست داری؟ 🍋🍫🌸")
+        return ASK_PREFERENCES
 
-    # نمایش خواص سلامتی فقط با نام مواد
-    benefits_text = "\n".join([f"▫️ {ingredient}" for ingredient in recipe.keys()]) + f"\n\n{benefits}"
-    await update.message.reply_text(f"🌿 خواص سلامتی:\n\n{benefits_text}")
+    # پاسخ به سوالات کاربر در مورد رسپی
+    await update.message.reply_text("در مورد رسپی سوال داری؟ بپرس! 🍹 من اینجام برای جواب دادن. ✨")
 
-    store_user_data(
-        update.effective_user.first_name,
-        context.user_data['user_phone'],
-        context.user_data['selected_taste'],
-        recipe
-    )
+    return CHAT_AFTER_RECIPE
 
-    return ConversationHandler.END
+async def fallback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("لطفاً از گزینه‌های موجود استفاده کن 🙏")
 
+def main():
+    app = ApplicationBuilder().token("7843819663:AAED6HyqaLKdANVHq3kvqvYua9koAJp14Ts").build()
 
-async def cancel(update: Update, context):
-    await update.message.reply_text("❌ گفتگو لغو شد. هر زمان خواستی با /start دوباره شروع کن.")
-    return ConversationHandler.END
-
-async def main():
-    initialize_data_storage()
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[CommandHandler("start", start)],
         states={
-            ASK_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_diet)],
-            ASK_DIET: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_taste)],
-            ASK_TASTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, generate_and_send_recipe)],
+            ASK_PHONE: [MessageHandler(filters.CONTACT, ask_preferences), MessageHandler(filters.TEXT, ask_preferences)],
+            ASK_PREFERENCES: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_recipe)],
+            CHAT_AFTER_RECIPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, chat_after_recipe)],
         },
-        fallbacks=[CommandHandler('cancel', cancel)],
+        fallbacks=[MessageHandler(filters.COMMAND, fallback)]
     )
-    application.add_handler(conv_handler)
-    await application.run_polling()
 
-if __name__ == '__main__':
-    asyncio.run(main())
+    app.add_handler(conv_handler)
+
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
