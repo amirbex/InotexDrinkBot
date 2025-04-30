@@ -3,7 +3,7 @@ import asyncio
 import random
 import os
 import json
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 import google.generativeai as genai
 
@@ -27,6 +27,7 @@ ingredients = {
     'توت فرنگی': 10, 'پرتقال': 10
 }
 
+# --- توابع ---
 def initialize_data_storage():
     if not os.path.exists(FILE_PATH):
         with open(FILE_PATH, 'w') as f:
@@ -39,6 +40,7 @@ def store_user_data(user_name, user_phone, selected_drink, recipe):
         'نوشیدنی انتخابی': selected_drink,
         'رسپی': recipe
     }
+    # اگر فایل خالی یا خراب بود، data رو [] در نظر بگیر
     if not os.path.exists(FILE_PATH) or os.stat(FILE_PATH).st_size == 0:
         data = []
     else:
@@ -53,6 +55,8 @@ def store_user_data(user_name, user_phone, selected_drink, recipe):
     with open(FILE_PATH, 'w') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
+
+
 def generate_text(prompt: str) -> str:
     try:
         response = model.generate_content([prompt])
@@ -62,35 +66,12 @@ def generate_text(prompt: str) -> str:
         return "خطایی در تولید متن رخ داده است."
 
 async def generate_drink(selected_diet: str, selected_taste: str):
-    total_volume = 0
-    max_volume = 280
-    max_syrup_volume = 40
-    selected_items = []
-    syrup_volume = 0
+    possible_ingredients = list(ingredients.keys())
+    selected_items = random.sample(possible_ingredients, random.randint(4, 6))
+    recipe = {item: f"{ingredients[item]} میلی لیتر" for item in selected_items}
 
-    shuffled_ingredients = list(ingredients.items())
-    random.shuffle(shuffled_ingredients)
-
-    for name, volume in shuffled_ingredients:
-        is_syrup = 'سیروپ' in name
-        v = volume
-
-        if total_volume + v > max_volume:
-            continue
-
-        if is_syrup and syrup_volume + v > max_syrup_volume:
-            continue
-
-        selected_items.append((name, v))
-        total_volume += v
-        if is_syrup:
-            syrup_volume += v
-
-        if total_volume >= max_volume:
-            break
-
-    recipe = {name: f"{v} میلی‌لیتر" for name, v in selected_items}
-    ingredients_list = "\n".join([f"- {name}: {v}ml" for name, v in selected_items])
+    # آماده‌سازی دیتای دقیق برای مدل
+    ingredients_list = "\n".join([f"- {item}: {ingredients[item]}ml" for item in selected_items])
 
     instruction_prompt = (
         f"یک دستور تهیه دقیق و حرفه‌ای برای یک نوشیدنی بدون الکل فقط با مواد زیر بنویس. "
@@ -108,13 +89,13 @@ async def generate_drink(selected_diet: str, selected_taste: str):
     return recipe, instructions, benefits
 
 # --- وضعیت‌های مکالمه ---
-ASK_PHONE, ASK_DIET, ASK_TASTE, AFTER_RECIPE = range(4)
+ASK_PHONE, ASK_DIET, ASK_TASTE = range(3)
 
 async def start(update: Update, context):
     user = update.effective_user
     await update.message.reply_text(
         f"سلام {user.first_name}! 👋✨\n\n"
-        "من دستیار هوشمند تهیه دستورالعمل نوشیدنی در غرفه‌ی اکسیر در نمایشگاه اینوتکس 2025 هستم با چند تا سوال خیلی سریع بهت یه دستورالعمل میدم . 🍹🎉\n"
+ "من دستیار هوشمند تهیه دستورالعمل نوشیدنی در غرفه‌ی اکسیر در نمایشگاه اینوتکس 2025 هستم با چند تا سوال خیلی سریع بهت یه دستورالعمل میدم . 🍹🎉\n"
         "خوشحالم که اینجایی! برای شروع لطفاً شماره موبایلت رو وارد کن 📱"
     )
     return ASK_PHONE
@@ -148,12 +129,15 @@ async def generate_and_send_recipe(update: Update, context):
 
     await thinking_message.delete()
 
+    # نمایش مواد اولیه با مقدار
     recipe_text = "\n".join([f"▫️ {ingredient}: {amount}" for ingredient, amount in recipe.items()])
     await update.message.reply_text(f"📋 مواد اولیه نوشیدنی شما:\n\n{recipe_text}")
 
+    # نمایش طرز تهیه فقط با نام مواد بدون مقدار
     instructions_text = "\n".join([f"▫️ {ingredient}" for ingredient in recipe.keys()]) + f"\n\n{instructions}"
     await update.message.reply_text(f"🍸 طرز تهیه:\n\n{instructions_text}")
 
+    # نمایش خواص سلامتی فقط با نام مواد
     benefits_text = "\n".join([f"▫️ {ingredient}" for ingredient in recipe.keys()]) + f"\n\n{benefits}"
     await update.message.reply_text(f"🌿 خواص سلامتی:\n\n{benefits_text}")
 
@@ -164,24 +148,8 @@ async def generate_and_send_recipe(update: Update, context):
         recipe
     )
 
-    reply_keyboard = [['🔁 تغییر رسپی', 'ℹ️ اطلاعات بیشتر'], ['❌ پایان']]
-    await update.message.reply_text(
-        "آیا دوست داری کاری دیگه انجام بدی؟",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True)
-    )
+    return ConversationHandler.END
 
-    return AFTER_RECIPE
-
-async def after_recipe(update: Update, context):
-    text = update.message.text
-    if 'تغییر' in text:
-        return await generate_and_send_recipe(update, context)
-    elif 'اطلاعات بیشتر' in text:
-        await update.message.reply_text("چه اطلاعاتی دوست داری بدونی؟ مثلاً درباره‌ی هر ماده خاص؟ (این بخش می‌تونه توسعه پیدا کنه)")
-        return AFTER_RECIPE
-    else:
-        await update.message.reply_text("با آرزوی سلامتی 🍹 تا بعد!")
-        return ConversationHandler.END
 
 async def cancel(update: Update, context):
     await update.message.reply_text("❌ گفتگو لغو شد. هر زمان خواستی با /start دوباره شروع کن.")
@@ -196,7 +164,6 @@ async def main():
             ASK_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_diet)],
             ASK_DIET: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_taste)],
             ASK_TASTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, generate_and_send_recipe)],
-            AFTER_RECIPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, after_recipe)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
