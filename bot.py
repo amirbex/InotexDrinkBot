@@ -62,50 +62,68 @@ def generate_text(prompt: str) -> str:
         return "خطایی در تولید متن رخ داده است."
 
 async def generate_drink(selected_diet: str, selected_taste: str):
-    total_volume = 0
-    max_volume = 280
+    max_total_volume = 280
     max_syrup_volume = 40
+    num_main_items = 6
+
+    juices = {k: v for k, v in ingredients.items() if 'آب' in k or 'نکتار' in k}
+    syrups = {k: v for k, v in ingredients.items() if 'سیروپ' in k}
+    others = {k: v for k, v in ingredients.items() if k not in juices and k not in syrups}
+
     selected_items = []
+    total_volume = 0
     syrup_volume = 0
 
-    shuffled_ingredients = list(ingredients.items())
-    random.shuffle(shuffled_ingredients)
+    while len(selected_items) < num_main_items:
+        pool = list(juices.items()) + list(syrups.items()) + list(others.items())
+        random.shuffle(pool)
+        for name, default_volume in pool:
+            if name in dict(selected_items):
+                continue
 
-    for name, volume in shuffled_ingredients:
-        is_syrup = 'سیروپ' in name
-        v = volume
+            is_syrup = 'سیروپ' in name
+            if name in juices:
+                volume = random.randint(30, 80)
+            elif is_syrup:
+                volume = default_volume
+            else:
+                volume = default_volume
 
-        if total_volume + v > max_volume:
-            continue
+            if is_syrup and syrup_volume + volume > max_syrup_volume:
+                continue
+            if total_volume + volume > max_total_volume:
+                continue
 
-        if is_syrup and syrup_volume + v > max_syrup_volume:
-            continue
-
-        selected_items.append((name, v))
-        total_volume += v
-        if is_syrup:
-            syrup_volume += v
-
-        if total_volume >= max_volume:
+            selected_items.append((name, volume))
+            total_volume += volume
+            if is_syrup:
+                syrup_volume += volume
             break
+
+    # گاهی "سودا" را به عنوان آیتم هفتم اضافه می‌کنیم
+    add_soda = random.choice([True, False])
+    if add_soda and total_volume < max_total_volume:
+        soda_volume = max_total_volume - total_volume
+        selected_items.append(('سودا', soda_volume))
+        total_volume += soda_volume
 
     recipe = {name: f"{v} میلی‌لیتر" for name, v in selected_items}
     ingredients_list = "\n".join([f"- {name}: {v}ml" for name, v in selected_items])
 
     instruction_prompt = (
-        f"یک دستور تهیه دقیق و حرفه‌ای برای یک نوشیدنی بدون الکل فقط با مواد زیر بنویس. "
-        f"طعم نوشیدنی باید {selected_taste} باشد و مناسب رژیم {selected_diet} طراحی شود:\n{ingredients_list}\n"
-        "لطفاً مرحله به مرحله توضیح بده."
+        f"یک دستور تهیه دقیق برای نوشیدنی بدون الکل با مواد زیر بنویس:\n{ingredients_list}\n"
+        f"طعم باید {selected_taste} باشد و مناسب رژیم {selected_diet}. لطفاً مرحله به مرحله توضیح بده."
     )
 
     benefits_prompt = (
-        f"خواص و فواید سلامتی هر یک از این مواد را جداگانه و مختصر توضیح بده:\n{ingredients_list}"
+        f"خواص سلامتی هر یک از این مواد را به طور مختصر بنویس:\n{ingredients_list}"
     )
 
     instructions = generate_text(instruction_prompt)
     benefits = generate_text(benefits_prompt)
 
     return recipe, instructions, benefits
+
 
 # --- وضعیت‌های مکالمه ---
 ASK_PHONE, ASK_DIET, ASK_TASTE, AFTER_RECIPE = range(4)
