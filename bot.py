@@ -6,7 +6,7 @@ import json
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 import google.generativeai as genai
- 
+
 # --- تنظیمات اولیه ---
 nest_asyncio.apply()
 TELEGRAM_TOKEN = '7843819663:AAED6HyqaLKdANVHq3kvqvYua9koAJp14Ts'
@@ -83,9 +83,9 @@ async def generate_drink(selected_diet: str, selected_taste: str):
 
             is_syrup = 'سیروپ' in name
             if name in juices:
-                volume = random.randint(30, 80)
+                volume = random.choice([20, 30, 40, 50, 60, 80])
             elif is_syrup:
-                volume = default_volume
+                volume = random.choice([10, 20, 30, 40])
             else:
                 volume = default_volume
 
@@ -221,5 +221,4 @@ async def main():
     application.add_handler(conv_handler)
     await application.run_polling()
 
-if __name__ == '__main__':
-    asyncio.run(main())
+if
