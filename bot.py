@@ -6,7 +6,7 @@ import json
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 import google.generativeai as genai
-
+ 
 # --- تنظیمات اولیه ---
 nest_asyncio.apply()
 TELEGRAM_TOKEN = '7843819663:AAED6HyqaLKdANVHq3kvqvYua9koAJp14Ts'
