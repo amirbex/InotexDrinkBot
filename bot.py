@@ -74,6 +74,7 @@ def generate_text(prompt: str) -> str:
         return "خطایی در تولید متن رخ داده است."
 
 
+# --- تابع تولید نوشیدنی ---
 async def generate_drink(selected_diet: str, selected_taste: str, user_firstname: str):
     max_total_volume = 280
     max_syrup_volume = 40
@@ -122,12 +123,12 @@ async def generate_drink(selected_diet: str, selected_taste: str, user_firstname
 
     recipe = {name: f"{v} میلی‌لیتر" for name, v in selected_items}
     ingredients_list = "\n".join([f"- {name}: {v}ml" for name, v in selected_items])
-
-    # --- ارتباط با مدل زبانی برای ۳ بخش ---
+  
+    # --- ارتباط کامل با جمینای در سه مرحله ---
     prompt_main = (
         f"با توجه به طعم {selected_taste} و رژیم {selected_diet}، از مواد زیر یک نوشیدنی بدون الکل طراحی کن:\n"
         f"{ingredients_list}\n"
-        f"لطفاً یک نام جذاب برای نوشیدنی پیشنهاد بده، سپس لیست مواد را هماهنگ و جذاب بنویس و در انتها یک جمله تبلیغاتی کوتاه اضافه کن."
+        f"لطفاً یک نام جذاب برای نوشیدنی پیشنهاد بده، سپس لیست مواد را مرتب و هماهنگ کن و در انتها یک جمله تبلیغاتی کوتاه هم بنویس."
     )
 
     prompt_instructions = (
@@ -138,17 +139,14 @@ async def generate_drink(selected_diet: str, selected_taste: str, user_firstname
         f"خواص هر کدام از مواد زیر را برای سلامتی در یک پاراگراف مختصر بنویس:\n{ingredients_list}"
     )
 
-    full_text = await generate_text(prompt_main)
-    instructions = await generate_text(prompt_instructions)
-    benefits = await generate_text(prompt_benefits)
+    text_main = generate_text(prompt_main)  # بدون await
+    instructions = generate_text(prompt_instructions)  # بدون await
+    benefits = generate_text(prompt_benefits)  # بدون await
 
-    # استخراج نام نوشیدنی از پاسخ اصلی (مثلاً با خط اول یا الگوی خاص)
-    drink_name = full_text.split("\n")[0].strip()
-
-    # ساخت جمله پایانی انگیزشی شخصی‌سازی‌شده
-    final_line = f"این نوشیدنی با نام «{drink_name}» تقدیم به {user_firstname} عزیز؛ تجربه‌ای از آینده فناوری در هر جرعه!"
+    final_line = f"نوشیدنی {text_main} را با تجربه جدید فناوری نوشیدنی برای {user_firstname} آماده کردیم!"
 
     return recipe, instructions, benefits, final_line
+
 
 # --- وضعیت‌های مکالمه ---
 ASK_PHONE, ASK_DIET, ASK_TASTE, AFTER_RECIPE = range(4)
