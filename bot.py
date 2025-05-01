@@ -16,15 +16,27 @@ FILE_PATH = 'user_data.json'
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel(model_name="models/gemini-1.5-pro")
 
+# --- لیست نهایی مواد اولیه ---
 ingredients = {
-    'آب سیب': 50, 'آب انار': 50, 'آب آلبالو': 50, 'آب پرتقال': 50, 'آب آناناس': 50,
-    'آب انگور سفید': 50, 'آب انگور سیاه': 50, 'نکتار انبه': 50, 'نکتار پرتقال پالپ دار': 50,
-    'نکتار هلو': 50, 'نکتار هفت میوه': 50, 'سیروپ توت فرنگی': 15, 'سیروپ پشن فروت': 15,
-    'سیروپ بلوبری': 15, 'سیروپ بلک بری': 15, 'سیروپ انگور': 15, 'سیروپ گواوا': 15,
-    'سیروپ موز': 15, 'سیروپ بلوکارسائو': 15, 'سیروپ گرین میکس': 15, 'سیروپ گرانادین': 15,
-    'سیروپ خیار': 15, 'سیروپ هل': 5, 'سیروپ فلفل': 5, 'سیروپ بادیان': 5, 'سیروپ ماسالا': 5,
-    'ریحان': 5, 'لیمو زرد': 10, 'گل خوراکی': 5, 'رزماری': 5, 'نعنا تازه': 5,
-    'توت فرنگی': 10, 'پرتقال': 10
+    # سیروپ
+    'سیروپ پاپ کرن', 'سیروپ بلک بری', 'سیروپ گرانادین(انار با پوست)', 'سیروپ زعفران',
+    'سیروپ خیار', 'سیروپ گرین میکس', 'سیروپ وانیل', 'سیروپ شکلات', 'سیروپ آیریش',
+    'سیروپ ردمیکس', 'سیروپ پشن فروت', 'سیروپ رام', 'سیروپ آدامس آبی',
+    'سیروپ گواوا', 'سیروپ ویمتو', 'سیروپ کوکی', 'سیروپ فندق', 'سیروپ بادیان',
+
+    # آبمیوه
+    'آب آلبالو', 'آب پرتقال', 'آب آناناس', 'آب انار فلفلی', 'آب سیب سبز',
+    'آب هلو', 'آب انبه', 'آب انگور سفید', 'آب زردآلو', 'آب انار',
+
+    # میوه و سبزیجات
+    'ریحان ایتالیایی', 'لیمو زرد', 'گل خوراکی', 'نعنا موهیتو تازه',
+    'توت فرنگی', 'پرتقال تازه',
+
+    # عرقیات
+    'عرق بیدمشک', 'عرق بهارنارنج',
+
+    # گازدار
+    'سودا کلاسیک', 'سودا', 'سیب گازدار', 'انرژی زا'
 }
 
 def initialize_data_storage():
@@ -61,79 +73,76 @@ def generate_text(prompt: str) -> str:
         print(f"خطا در ارتباط با Gemini: {e}")
         return "خطایی در تولید متن رخ داده است."
 
+
+# --- تابع تولید نوشیدنی ---
 async def generate_drink(selected_diet: str, selected_taste: str):
     max_total_volume = 280
     max_syrup_volume = 40
-    num_main_items = 5
-    max_additives = 2  # حداکثر چاشنی
+    num_main_items = 6
 
-    # دسته‌بندی دقیق مواد
-    juice_keywords = ['آب', 'نکتار']
-    syrup_keywords = ['سیروپ']
-    
-    allowed_juice_volumes = [20, 30, 40, 50, 60, 80]
-    allowed_syrup_volumes = [10, 20, 30, 40]
-
-    juices = {k: v for k, v in ingredients.items() if any(word in k for word in juice_keywords)}
-    syrups = {k: v for k, v in ingredients.items() if any(word in k for word in syrup_keywords)}
-    additives = {k: v for k, v in ingredients.items() if k not in juices and k not in syrups}
+    juices = [item for item in ingredients if 'آب' in item]
+    syrups = [item for item in ingredients if 'سیروپ' in item]
+    others = [item for item in ingredients if item not in juices and item not in syrups]
 
     selected_items = []
     total_volume = 0
     syrup_volume = 0
 
-    # انتخاب مواد اصلی (فقط از آبمیوه و سیروپ)
     while len(selected_items) < num_main_items:
-        choices = list(juices.items()) + list(syrups.items())
-        random.shuffle(choices)
-        for name, _ in choices:
-            if name in dict(selected_items):
+        pool = juices + syrups + others
+        random.shuffle(pool)
+        for name in pool:
+            if name in [item[0] for item in selected_items]:
                 continue
 
+            is_syrup = 'سیروپ' in name
             if name in juices:
-                volume = random.choice(allowed_juice_volumes)
-            elif name in syrups:
-                volume = random.choice(allowed_syrup_volumes)
-                if syrup_volume + volume > max_syrup_volume:
-                    continue
-                syrup_volume += volume
+                volume = random.choice([20, 30, 40, 50, 60, 80])
+            elif is_syrup:
+                volume = random.choice([10, 20, 30, 40])
             else:
-                continue
+                volume = random.choice([5, 10])
 
+            if is_syrup and syrup_volume + volume > max_syrup_volume:
+                continue
             if total_volume + volume > max_total_volume:
                 continue
 
             selected_items.append((name, volume))
             total_volume += volume
+            if is_syrup:
+                syrup_volume += volume
             break
 
-    # افزودن چاشنی یا تزئین (حداکثر ۲ مورد)
-    additive_count = 0
-    additive_candidates = list(additives.items())
-    random.shuffle(additive_candidates)
-    for name, default_volume in additive_candidates:
-        if additive_count >= max_additives or total_volume + default_volume > max_total_volume:
-            break
-        selected_items.append((name, default_volume))
-        total_volume += default_volume
-        additive_count += 1
+    # افزودن گازدار در انتها در صورت امکان
+    add_soda = random.choice([True, False])
+    if add_soda and total_volume < max_total_volume:
+        soda_volume = max_total_volume - total_volume
+        selected_items.append(('سودا', soda_volume))
+        total_volume += soda_volume
 
-    # ساخت رسپی نهایی
     recipe = {name: f"{v} میلی‌لیتر" for name, v in selected_items}
     ingredients_list = "\n".join([f"- {name}: {v}ml" for name, v in selected_items])
-
-    # ساخت پرامپت‌ها
-    instruction_prompt = (
-        f"یک دستور تهیه دقیق برای نوشیدنی بدون الکل با مواد زیر بنویس:\n{ingredients_list}\n"
-        f"طعم باید {selected_taste} باشد و مناسب رژیم {selected_diet}. لطفاً مرحله به مرحله توضیح بده."
+    # --- ارتباط کامل با جمینای در سه مرحله ---
+    prompt_main = (
+        f"با توجه به طعم {selected_taste} و رژیم {selected_diet}، از مواد زیر یک نوشیدنی بدون الکل طراحی کن:\n"
+        f"{ingredients_list}\n"
+        f"لطفاً یک نام جذاب برای نوشیدنی پیشنهاد بده، سپس لیست مواد را مرتب و هماهنگ کن و در انتها یک جمله تبلیغاتی کوتاه هم مربوط به تجربه فناوری نوشیدنی بنویس."
     )
-    benefits_prompt = f"خواص سلامتی هر یک از این مواد را به طور مختصر بنویس:\n{ingredients_list}"
 
-    instructions = generate_text(instruction_prompt)
-    benefits = generate_text(benefits_prompt)
+    prompt_instructions = (
+        f"طرز تهیه حرفه‌ای این نوشیدنی را به سبک یک بارتندر حرفه‌ای مرحله به مرحله بنویس:\n{ingredients_list}"
+    )
 
-    return recipe, instructions, benefits
+    prompt_benefits = (
+        f"خواص هر کدام از مواد زیر را برای سلامتی در یک پاراگراف مختصر بنویس:\n{ingredients_list}"
+    )
 
+    text_main = generate_text(prompt_main)
+    instructions = generate_text(prompt_instructions)
+    benefits = generate_text(prompt_benefits)
+
+    return recipe, text_main, instructions, benefits
 
 
 # --- وضعیت‌های مکالمه ---
