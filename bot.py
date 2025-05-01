@@ -132,7 +132,7 @@ async def generate_drink(selected_diet: str, selected_taste: str):
 # --- دستورات تلگرام ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    await update.message.reply(f"سلام {user.first_name}! من یک ربات برای طراحی نوشیدنی‌های بدون الکل هستم. دستوراتی که می‌توانید استفاده کنید:\n"
+await update.effective_message.reply(f"سلام {update.effective_user.first_name}! من یک ربات برای طراحی نوشیدنی‌های بدون الکل هستم. دستوراتی که می‌توانید استفاده کنید:\n")
                                "/create_drink - شروع ساخت نوشیدنی\n"
                                "/help - راهنمای استفاده")
 
