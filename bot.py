@@ -184,11 +184,11 @@ async def generate_and_send_recipe(update: Update, context):
     context.user_data['selected_taste'] = update.message.text
     thinking_message = await update.message.reply_text('🤔 دارم بهترین نوشیدنی رو برات آماده می‌کنم... لطفاً چند لحظه صبر کن! 🍸')
 
- recipe, instructions, benefits, final_line = await generate_drink(
-    selected_diet=context.user_data['user_diet'],
-    selected_taste=context.user_data['selected_taste'],
-    user_firstname=update.message.from_user.first_name  # یا update.effective_user.first_name
-)
+    recipe, instructions, benefits, final_line = await generate_drink(
+        selected_diet=context.user_data['user_diet'],
+        selected_taste=context.user_data['selected_taste'],
+        user_firstname=update.message.from_user.first_name  # یا update.effective_user.first_name
+    )
 
 
 
