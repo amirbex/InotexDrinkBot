@@ -74,8 +74,7 @@ def generate_text(prompt: str) -> str:
         return "خطایی در تولید متن رخ داده است."
 
 
-# --- تابع تولید نوشیدنی ---
-async def generate_drink(selected_diet: str, selected_taste: str):
+async def generate_drink(selected_diet: str, selected_taste: str, user_firstname: str):
     max_total_volume = 280
     max_syrup_volume = 40
     num_main_items = 6
@@ -123,13 +122,12 @@ async def generate_drink(selected_diet: str, selected_taste: str):
 
     recipe = {name: f"{v} میلی‌لیتر" for name, v in selected_items}
     ingredients_list = "\n".join([f"- {name}: {v}ml" for name, v in selected_items])
-    # --- ارتباط کامل با جمینای در سه مرحله ---
-  
-    # --- ارتباط کامل با جمینای در سه مرحله ---
+
+    # --- ارتباط با مدل زبانی برای ۳ بخش ---
     prompt_main = (
         f"با توجه به طعم {selected_taste} و رژیم {selected_diet}، از مواد زیر یک نوشیدنی بدون الکل طراحی کن:\n"
         f"{ingredients_list}\n"
-        f"لطفاً یک نام جذاب برای نوشیدنی پیشنهاد بده، سپس لیست مواد را مرتب و هماهنگ کن و در انتها یک جمله تبلیغاتی کوتاه هم بنویس."
+        f"لطفاً یک نام جذاب برای نوشیدنی پیشنهاد بده، سپس لیست مواد را هماهنگ و جذاب بنویس و در انتها یک جمله تبلیغاتی کوتاه اضافه کن."
     )
 
     prompt_instructions = (
@@ -140,12 +138,17 @@ async def generate_drink(selected_diet: str, selected_taste: str):
         f"خواص هر کدام از مواد زیر را برای سلامتی در یک پاراگراف مختصر بنویس:\n{ingredients_list}"
     )
 
-    text_main = generate_text(prompt_main)
-    instructions = generate_text(prompt_instructions)
-    benefits = generate_text(prompt_benefits)
+    full_text = await generate_text(prompt_main)
+    instructions = await generate_text(prompt_instructions)
+    benefits = await generate_text(prompt_benefits)
 
-    return recipe, text_main, instructions, benefits
+    # استخراج نام نوشیدنی از پاسخ اصلی (مثلاً با خط اول یا الگوی خاص)
+    drink_name = full_text.split("\n")[0].strip()
 
+    # ساخت جمله پایانی انگیزشی شخصی‌سازی‌شده
+    final_line = f"این نوشیدنی با نام «{drink_name}» تقدیم به {user_firstname} عزیز؛ تجربه‌ای از آینده فناوری در هر جرعه!"
+
+    return recipe, instructions, benefits, final_line
 
 # --- وضعیت‌های مکالمه ---
 ASK_PHONE, ASK_DIET, ASK_TASTE, AFTER_RECIPE = range(4)
@@ -181,10 +184,12 @@ async def generate_and_send_recipe(update: Update, context):
     context.user_data['selected_taste'] = update.message.text
     thinking_message = await update.message.reply_text('🤔 دارم بهترین نوشیدنی رو برات آماده می‌کنم... لطفاً چند لحظه صبر کن! 🍸')
 
-    recipe, instructions, benefits = await generate_drink(
-        selected_diet=context.user_data['user_diet'],
-        selected_taste=context.user_data['selected_taste']
-    )
+   recipe, instructions, benefits, final_line = await generate_drink(
+    selected_diet=context.user_data['user_diet'],
+    selected_taste=context.user_data['selected_taste'],
+    user_firstname=update.message.from_user.first_name  # یا update.effective_user.first_name
+)
+
 
     await thinking_message.delete()
 
