@@ -124,10 +124,12 @@ async def generate_drink(selected_diet: str, selected_taste: str):
     recipe = {name: f"{v} میلی‌لیتر" for name, v in selected_items}
     ingredients_list = "\n".join([f"- {name}: {v}ml" for name, v in selected_items])
     # --- ارتباط کامل با جمینای در سه مرحله ---
+  
+    # --- ارتباط کامل با جمینای در سه مرحله ---
     prompt_main = (
         f"با توجه به طعم {selected_taste} و رژیم {selected_diet}، از مواد زیر یک نوشیدنی بدون الکل طراحی کن:\n"
         f"{ingredients_list}\n"
-        f"لطفاً یک نام جذاب برای نوشیدنی پیشنهاد بده، سپس لیست مواد را مرتب و هماهنگ کن و در انتها یک جمله تبلیغاتی کوتاه هم مربوط به تجربه فناوری نوشیدنی بنویس."
+        f"لطفاً یک نام جذاب برای نوشیدنی پیشنهاد بده، سپس لیست مواد را مرتب و هماهنگ کن و در انتها یک جمله تبلیغاتی کوتاه هم بنویس."
     )
 
     prompt_instructions = (
