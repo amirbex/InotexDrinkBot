@@ -6,7 +6,7 @@ import json
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 import google.generativeai as genai
-
+ 
 # --- تنظیمات اولیه ---
 nest_asyncio.apply()
 TELEGRAM_TOKEN = '7843819663:AAED6HyqaLKdANVHq3kvqvYua9koAJp14Ts'
@@ -64,65 +64,76 @@ def generate_text(prompt: str) -> str:
 async def generate_drink(selected_diet: str, selected_taste: str):
     max_total_volume = 280
     max_syrup_volume = 40
-    num_main_items = 6
+    num_main_items = 5
+    max_additives = 2  # حداکثر چاشنی
 
-    juices = {k: v for k, v in ingredients.items() if 'آب' in k or 'نکتار' in k}
-    syrups = {k: v for k, v in ingredients.items() if 'سیروپ' in k}
-    others = {k: v for k, v in ingredients.items() if k not in juices and k not in syrups}
+    # دسته‌بندی دقیق مواد
+    juice_keywords = ['آب', 'نکتار']
+    syrup_keywords = ['سیروپ']
+    
+    allowed_juice_volumes = [20, 30, 40, 50, 60, 80]
+    allowed_syrup_volumes = [10, 20, 30, 40]
+
+    juices = {k: v for k, v in ingredients.items() if any(word in k for word in juice_keywords)}
+    syrups = {k: v for k, v in ingredients.items() if any(word in k for word in syrup_keywords)}
+    additives = {k: v for k, v in ingredients.items() if k not in juices and k not in syrups}
 
     selected_items = []
     total_volume = 0
     syrup_volume = 0
 
+    # انتخاب مواد اصلی (فقط از آبمیوه و سیروپ)
     while len(selected_items) < num_main_items:
-        pool = list(juices.items()) + list(syrups.items()) + list(others.items())
-        random.shuffle(pool)
-        for name, default_volume in pool:
+        choices = list(juices.items()) + list(syrups.items())
+        random.shuffle(choices)
+        for name, _ in choices:
             if name in dict(selected_items):
                 continue
 
-            is_syrup = 'سیروپ' in name
             if name in juices:
-                volume = random.choice([20, 30, 40, 50, 60, 80])
-            elif is_syrup:
-                volume = random.choice([10, 20, 30, 40])
+                volume = random.choice(allowed_juice_volumes)
+            elif name in syrups:
+                volume = random.choice(allowed_syrup_volumes)
+                if syrup_volume + volume > max_syrup_volume:
+                    continue
+                syrup_volume += volume
             else:
-                volume = default_volume
-
-            if is_syrup and syrup_volume + volume > max_syrup_volume:
                 continue
+
             if total_volume + volume > max_total_volume:
                 continue
 
             selected_items.append((name, volume))
             total_volume += volume
-            if is_syrup:
-                syrup_volume += volume
             break
 
-    # گاهی "سودا" را به عنوان آیتم هفتم اضافه می‌کنیم
-    add_soda = random.choice([True, False])
-    if add_soda and total_volume < max_total_volume:
-        soda_volume = max_total_volume - total_volume
-        selected_items.append(('سودا', soda_volume))
-        total_volume += soda_volume
+    # افزودن چاشنی یا تزئین (حداکثر ۲ مورد)
+    additive_count = 0
+    additive_candidates = list(additives.items())
+    random.shuffle(additive_candidates)
+    for name, default_volume in additive_candidates:
+        if additive_count >= max_additives or total_volume + default_volume > max_total_volume:
+            break
+        selected_items.append((name, default_volume))
+        total_volume += default_volume
+        additive_count += 1
 
+    # ساخت رسپی نهایی
     recipe = {name: f"{v} میلی‌لیتر" for name, v in selected_items}
     ingredients_list = "\n".join([f"- {name}: {v}ml" for name, v in selected_items])
 
+    # ساخت پرامپت‌ها
     instruction_prompt = (
         f"یک دستور تهیه دقیق برای نوشیدنی بدون الکل با مواد زیر بنویس:\n{ingredients_list}\n"
         f"طعم باید {selected_taste} باشد و مناسب رژیم {selected_diet}. لطفاً مرحله به مرحله توضیح بده."
     )
-
-    benefits_prompt = (
-        f"خواص سلامتی هر یک از این مواد را به طور مختصر بنویس:\n{ingredients_list}"
-    )
+    benefits_prompt = f"خواص سلامتی هر یک از این مواد را به طور مختصر بنویس:\n{ingredients_list}"
 
     instructions = generate_text(instruction_prompt)
     benefits = generate_text(benefits_prompt)
 
     return recipe, instructions, benefits
+
 
 
 # --- وضعیت‌های مکالمه ---
@@ -221,4 +232,5 @@ async def main():
     application.add_handler(conv_handler)
     await application.run_polling()
 
-if
+if __name__ == '__main__':
+    asyncio.run(main())
